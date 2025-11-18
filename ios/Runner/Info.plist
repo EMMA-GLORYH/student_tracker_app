@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- ============================================ -->
+    <!-- EXISTING APP CONFIGURATION -->
+    <!-- ============================================ -->
+    <key>CFBundleDevelopmentRegion</key>
+    <string>$(DEVELOPMENT_LANGUAGE)</string>
+    <key>CFBundleDisplayName</key>
+    <string>Find Me</string>
+    <key>CFBundleExecutable</key>
+    <string>$(EXECUTABLE_NAME)</string>
+    <key>CFBundleIdentifier</key>
+    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>find_me</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>$(FLUTTER_BUILD_NAME)</string>
+    <key>CFBundleSignature</key>
+    <string>????</string>
+    <key>CFBundleVersion</key>
+    <string>$(FLUTTER_BUILD_NUMBER)</string>
+    <key>LSRequiresIPhoneOS</key>
+    <true/>
+    <key>UILaunchStoryboardName</key>
+    <string>LaunchScreen</string>
+    <key>UIMainStoryboardFile</key>
+    <string>Main</string>
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+       <string>UIInterfaceOrientationPortrait</string>
+       <string>UIInterfaceOrientationLandscapeLeft</string>
+       <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+    <key>UISupportedInterfaceOrientations~ipad</key>
+    <array>
+       <string>UIInterfaceOrientationPortrait</string>
+       <string>UIInterfaceOrientationPortraitUpsideDown</string>
+       <string>UIInterfaceOrientationLandscapeLeft</string>
+       <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+    <key>CADisableMinimumFrameDurationOnPhone</key>
+    <true/>
+    <key>UIApplicationSupportsIndirectInputEvents</key>
+    <true/>
+
+    <!-- ============================================ -->
+    <!-- ✅ NEW: LOCATION PERMISSIONS FOR TRACKING -->
+    <!-- ============================================ -->
+
+    <!-- Permission for location when app is in use -->
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>FindMe needs your location to track your safety and notify your school when you arrive or leave campus.</string>
+
+    <!-- Permission for continuous location tracking -->
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+    <string>FindMe requires continuous location access to keep you safe. Your school will be notified when you enter or leave the campus, even when the app is in the background.</string>
+
+    <!-- Permission for background location (Required for iOS 11+) -->
+    <key>NSLocationAlwaysUsageDescription</key>
+    <string>FindMe needs always-on location access to ensure your safety. This allows continuous monitoring even when the app is closed.</string>
+
+    <!-- Temporary precision reduction for iOS 14+ -->
+    <key>NSLocationTemporaryUsageDescriptionDictionary</key>
+    <dict>
+        <key>SafetyTracking</key>
+        <string>FindMe needs precise location to accurately determine if you're on campus.</string>
+    </dict>
+
+    <!-- ============================================ -->
+    <!-- ✅ NEW: BACKGROUND MODES FOR TRACKING -->
+    <!-- ============================================ -->
+
+    <!-- Enable background location updates -->
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>location</string>
+        <string>fetch</string>
+        <string>processing</string>
+        <string>remote-notification</string>
+    </array>
+
+    <!-- ============================================ -->
+    <!-- ✅ NEW: PRIVACY SETTINGS -->
+    <!-- ============================================ -->
+
+    <!-- Show location icon in status bar when tracking -->
+    <key>UIStatusBarHidden</key>
+    <false/>
+
+    <!-- App Transport Security (Allow all connections) -->
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsArbitraryLoads</key>
+        <true/>
+    </dict>
+
+    <!-- ============================================ -->
+
+</dict>
+</plist>

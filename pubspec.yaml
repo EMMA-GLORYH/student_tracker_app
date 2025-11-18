@@ -1,0 +1,64 @@
+name: find_me
+description: "Smart Student Safety & Tracking System"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.9.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Firebase
+  firebase_core: ^2.32.0
+  firebase_auth: ^4.20.0
+  cloud_firestore: ^4.15.0
+  firebase_messaging: ^14.7.0
+
+  # Authentication & Security
+  shared_preferences: ^2.2.2
+  local_auth: ^2.1.7
+
+  # Maps & Location
+  google_maps_flutter: ^2.5.0
+  geolocator: ^10.1.0
+  location: ^5.0.1
+
+
+  # UI
+  cupertino_icons: ^1.0.2
+  #Image Upload
+  image_picker: ^1.0.4
+  emailjs: ^4.0.0    # Optional (for sending email directly)
+  http: ^1.2.2       # Optional (for SMS API)
+  url_launcher: ^6.1.0
+  connectivity_plus: ^5.0.0
+  firebase_storage: ^11.5.0
+  crypto: ^3.0.3
+  intl: ^0.18.1
+  mobile_scanner: ^3.5.5
+  file_picker: ^8.0.0
+  csv: ^6.0.0
+  excel: ^4.0.0
+  permission_handler: ^11.0.1
+
+  workmanager: ^0.6.0
+  battery_plus: ^6.0.2
+  device_info_plus: ^10.1.0
+
+
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+
+  # Assets - Add your logo and other images here
+  assets:
+    - assets/images/

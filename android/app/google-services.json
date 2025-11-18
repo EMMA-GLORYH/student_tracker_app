@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "160305000243",
+    "project_id": "early-cmagic",
+    "storage_bucket": "early-cmagic.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:160305000243:android:65ca3c8a10e6b8512a9846",
+        "android_client_info": {
+          "package_name": "com.example.find_me"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAfTjqa4bYD0DVyxnTpHnzkonu16nRpn8k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:160305000243:android:f284f434a615510a2a9846",
+        "android_client_info": {
+          "package_name": "com.example.s3ts"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAfTjqa4bYD0DVyxnTpHnzkonu16nRpn8k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
