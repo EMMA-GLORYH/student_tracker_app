@@ -24,11 +24,20 @@ class _ParentProfilePageState extends State<ParentProfilePage> with SingleTicker
   final _addressController = TextEditingController();
   final _emergencyContactController = TextEditingController();
 
-  bool _isLoading = true;
+  // ✅ New credential controllers
+  final _ghanaCardNumberController = TextEditingController();
+  final _occupationController = TextEditingController();
+  final _dateOfBirthController = TextEditingController();
+  final _alternativePhoneController = TextEditingController();
+  final _nationalityController = TextEditingController();
+  final _workAddressController = TextEditingController();
+
+  bool _isLoading = false; // ✅ No initial loading screen
   bool _isSaving = false;
   bool _isEditing = false;
   bool _profileCompleted = false;
   File? _profileImage;
+  File? _ghanaCardImage; // ✅ Ghana Card image
   List<Map<String, dynamic>> _children = [];
   List<Map<String, dynamic>> _childAssignments = [];
 
@@ -50,7 +59,7 @@ class _ParentProfilePageState extends State<ParentProfilePage> with SingleTicker
   }
 
   Future<void> _loadParentProfile() async {
-    setState(() => _isLoading = true);
+    // Load silently in background - no loading screen
 
     try {
       debugPrint('🔍 Loading parent profile for: ${widget.parentId}');
@@ -66,6 +75,15 @@ class _ParentProfilePageState extends State<ParentProfilePage> with SingleTicker
           _emailController.text = data['email'] ?? '';
           _addressController.text = data['address'] ?? '';
           _emergencyContactController.text = data['emergencyContact'] ?? '';
+
+          // ✅ Load new credentials
+          _ghanaCardNumberController.text = data['ghanaCardNumber'] ?? '';
+          _occupationController.text = data['occupation'] ?? '';
+          _dateOfBirthController.text = data['dateOfBirth'] ?? '';
+          _alternativePhoneController.text = data['alternativePhone'] ?? '';
+          _nationalityController.text = data['nationality'] ?? 'Ghanaian';
+          _workAddressController.text = data['workAddress'] ?? '';
+
           _profileCompleted = data['profileCompleted'] ?? false;
         });
         debugPrint('✅ Parent profile loaded: ${data['name'] ?? data['fullName']}');
@@ -157,11 +175,9 @@ class _ParentProfilePageState extends State<ParentProfilePage> with SingleTicker
         _childAssignments = assignmentsSnapshot.docs.map((doc) {
           return {'id': doc.id, ...doc.data()};
         }).toList();
-        _isLoading = false;
       });
     } catch (e) {
       debugPrint('❌ Error loading profile: $e');
-      setState(() => _isLoading = false);
       _showSnackBar('Error loading profile: $e', isError: true);
     }
   }
@@ -195,6 +211,15 @@ class _ParentProfilePageState extends State<ParentProfilePage> with SingleTicker
         'email': _emailController.text.trim(),
         'address': _addressController.text.trim(),
         'emergencyContact': _emergencyContactController.text.trim(),
+
+        // ✅ Save new credentials
+        'ghanaCardNumber': _ghanaCardNumberController.text.trim(),
+        'occupation': _occupationController.text.trim(),
+        'dateOfBirth': _dateOfBirthController.text.trim(),
+        'alternativePhone': _alternativePhoneController.text.trim(),
+        'nationality': _nationalityController.text.trim(),
+        'workAddress': _workAddressController.text.trim(),
+
         'profileCompleted': true,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
@@ -228,28 +253,6 @@ class _ParentProfilePageState extends State<ParentProfilePage> with SingleTicker
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    if (_isLoading) {
-      return Scaffold(
-        backgroundColor: isDark ? darkBackground : lightBackground,
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(color: primaryColor),
-              const SizedBox(height: 16),
-              Text(
-                'Loading profile...',
-                style: TextStyle(
-                  color: isDark ? Colors.white70 : Colors.black54,
-                  fontSize: 16,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
 
     return Scaffold(
       backgroundColor: isDark ? darkBackground : lightBackground,
@@ -394,6 +397,11 @@ class _ParentProfilePageState extends State<ParentProfilePage> with SingleTicker
   }
 
   Widget _buildProfileStats(bool isDark) {
+    final isVerified = _ghanaCardNumberController.text.isNotEmpty;
+    final hasAllCredentials = _ghanaCardNumberController.text.isNotEmpty &&
+        _occupationController.text.isNotEmpty &&
+        _dateOfBirthController.text.isNotEmpty;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
@@ -411,20 +419,20 @@ class _ParentProfilePageState extends State<ParentProfilePage> with SingleTicker
           Expanded(
             child: _buildStatCard(
               isDark: isDark,
-              icon: Icons.school,
-              label: 'Schools',
-              value: '${_children.map((c) => c['schoolId']).toSet().length}',
-              color: secondaryColor,
+              icon: hasAllCredentials ? Icons.verified_user : Icons.pending_actions,
+              label: 'Verification',
+              value: hasAllCredentials ? 'Complete' : 'Pending',
+              color: hasAllCredentials ? accentColor : warningColor,
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: _buildStatCard(
               isDark: isDark,
-              icon: Icons.family_restroom,
-              label: 'Relationships',
-              value: '${_children.map((c) => c['relationship']).toSet().length}',
-              color: accentColor,
+              icon: Icons.credit_card,
+              label: 'Ghana Card',
+              value: isVerified ? 'Added' : 'Missing',
+              color: isVerified ? accentColor : Colors.red,
             ),
           ),
         ],
@@ -439,6 +447,10 @@ class _ParentProfilePageState extends State<ParentProfilePage> with SingleTicker
     required String value,
     required Color color,
   }) {
+    // Check if value is a number or text
+    final isNumeric = int.tryParse(value) != null;
+    final fontSize = isNumeric ? 24.0 : 16.0;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -466,10 +478,11 @@ class _ParentProfilePageState extends State<ParentProfilePage> with SingleTicker
           Text(
             value,
             style: TextStyle(
-              fontSize: 24,
+              fontSize: fontSize,
               fontWeight: FontWeight.bold,
-              color: isDark ? Colors.white : Colors.black87,
+              color: color,
             ),
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 4),
           Text(
@@ -478,6 +491,7 @@ class _ParentProfilePageState extends State<ParentProfilePage> with SingleTicker
               fontSize: 12,
               color: isDark ? Colors.white60 : Colors.black54,
             ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -538,6 +552,86 @@ class _ParentProfilePageState extends State<ParentProfilePage> with SingleTicker
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // ✅ Verification Status Banner
+              if (_ghanaCardNumberController.text.isEmpty ||
+                  _occupationController.text.isEmpty ||
+                  _dateOfBirthController.text.isEmpty)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 20),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: warningColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: warningColor.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning_amber_rounded, color: warningColor, size: 24),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Profile Incomplete',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Please provide Ghana Card details and complete all required fields',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Container(
+                  margin: const EdgeInsets.only(bottom: 20),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: accentColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: accentColor.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.verified_user, color: accentColor, size: 24),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Profile Verified',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'All required credentials have been provided',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
               Row(
                 children: [
                   Container(
@@ -568,12 +662,141 @@ class _ParentProfilePageState extends State<ParentProfilePage> with SingleTicker
               ),
               const SizedBox(height: 16),
               _buildTextField(
+                controller: _dateOfBirthController,
+                label: 'Date of Birth',
+                icon: Icons.cake,
+                enabled: _isEditing,
+                keyboardType: TextInputType.datetime,
+                validator: (value) => value?.isEmpty ?? true ? 'Date of birth is required' : null,
+                hint: 'DD/MM/YYYY',
+              ),
+              const SizedBox(height: 16),
+              _buildTextField(
+                controller: _nationalityController,
+                label: 'Nationality',
+                icon: Icons.flag,
+                enabled: _isEditing,
+                validator: (value) => value?.isEmpty ?? true ? 'Nationality is required' : null,
+              ),
+              const SizedBox(height: 16),
+              _buildTextField(
+                controller: _occupationController,
+                label: 'Occupation',
+                icon: Icons.work,
+                enabled: _isEditing,
+                validator: (value) => value?.isEmpty ?? true ? 'Occupation is required' : null,
+              ),
+
+              // ✅ Ghana Card Section
+              const SizedBox(height: 32),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: accentColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(Icons.credit_card, color: accentColor, size: 28),
+                  ),
+                  const SizedBox(width: 16),
+                  const Text(
+                    'Ghana Card Information',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              _buildTextField(
+                controller: _ghanaCardNumberController,
+                label: 'Ghana Card Number',
+                icon: Icons.badge,
+                enabled: _isEditing,
+                validator: (value) {
+                  if (value?.isEmpty ?? true) return 'Ghana Card number is required';
+                  if (value!.length < 10) return 'Invalid Ghana Card number';
+                  return null;
+                },
+                hint: 'GHA-XXXXXXXXX-X',
+              ),
+              const SizedBox(height: 16),
+
+              // Ghana Card Image Upload
+              if (_isEditing) _buildGhanaCardUpload(),
+              if (!_isEditing && _ghanaCardImage != null)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: accentColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: accentColor.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.check_circle, color: accentColor, size: 20),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Ghana Card image uploaded',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+              // ✅ Contact Information Section
+              const SizedBox(height: 32),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(Icons.contact_phone, color: primaryColor, size: 28),
+                  ),
+                  const SizedBox(width: 16),
+                  const Text(
+                    'Contact Information',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              _buildTextField(
                 controller: _phoneController,
-                label: 'Phone Number',
+                label: 'Primary Phone Number',
                 icon: Icons.phone,
                 enabled: _isEditing,
                 keyboardType: TextInputType.phone,
-                validator: (value) => value?.isEmpty ?? true ? 'Phone is required' : null,
+                validator: (value) {
+                  if (value?.isEmpty ?? true) return 'Phone is required';
+                  if (value!.length < 10) return 'Invalid phone number';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              _buildTextField(
+                controller: _alternativePhoneController,
+                label: 'Alternative Phone Number',
+                icon: Icons.phone_android,
+                enabled: _isEditing,
+                keyboardType: TextInputType.phone,
+                validator: (value) {
+                  if (value != null && value.isNotEmpty && value.length < 10) {
+                    return 'Invalid phone number';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 16),
               _buildTextField(
@@ -590,21 +813,56 @@ class _ParentProfilePageState extends State<ParentProfilePage> with SingleTicker
               ),
               const SizedBox(height: 16),
               _buildTextField(
+                controller: _emergencyContactController,
+                label: 'Emergency Contact Number',
+                icon: Icons.emergency,
+                enabled: _isEditing,
+                keyboardType: TextInputType.phone,
+                validator: (value) {
+                  if (value?.isEmpty ?? true) return 'Emergency contact is required';
+                  if (value!.length < 10) return 'Invalid phone number';
+                  return null;
+                },
+              ),
+
+              // ✅ Address Information Section
+              const SizedBox(height: 32),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: secondaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(Icons.location_on, color: secondaryColor, size: 28),
+                  ),
+                  const SizedBox(width: 16),
+                  const Text(
+                    'Address Information',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              _buildTextField(
                 controller: _addressController,
                 label: 'Home Address',
-                icon: Icons.location_on,
+                icon: Icons.home,
                 enabled: _isEditing,
                 maxLines: 2,
                 validator: (value) => value?.isEmpty ?? true ? 'Address is required' : null,
               ),
               const SizedBox(height: 16),
               _buildTextField(
-                controller: _emergencyContactController,
-                label: 'Emergency Contact',
-                icon: Icons.emergency,
+                controller: _workAddressController,
+                label: 'Work Address (Optional)',
+                icon: Icons.business,
                 enabled: _isEditing,
-                keyboardType: TextInputType.phone,
-                validator: (value) => value?.isEmpty ?? true ? 'Emergency contact is required' : null,
+                maxLines: 2,
               ),
               if (_isEditing) ...[
                 const SizedBox(height: 24),
@@ -711,6 +969,7 @@ class _ParentProfilePageState extends State<ParentProfilePage> with SingleTicker
     int maxLines = 1,
     TextInputType? keyboardType,
     String? Function(String?)? validator,
+    String? hint,
   }) {
     return TextFormField(
       controller: controller,
@@ -720,6 +979,7 @@ class _ParentProfilePageState extends State<ParentProfilePage> with SingleTicker
       validator: validator,
       decoration: InputDecoration(
         labelText: label,
+        hintText: hint,
         prefixIcon: Icon(icon, color: primaryColor),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -991,6 +1251,100 @@ class _ParentProfilePageState extends State<ParentProfilePage> with SingleTicker
     );
   }
 
+  Widget _buildGhanaCardUpload() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: accentColor.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: accentColor.withOpacity(0.3), width: 2),
+      ),
+      child: Column(
+        children: [
+          if (_ghanaCardImage != null) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.file(
+                _ghanaCardImage!,
+                height: 200,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final picker = ImagePicker();
+                    final image = await picker.pickImage(source: ImageSource.gallery);
+                    if (image != null) {
+                      setState(() => _ghanaCardImage = File(image.path));
+                    }
+                  },
+                  icon: Icon(Icons.photo_library, color: accentColor),
+                  label: Text(
+                    _ghanaCardImage != null ? 'Change Image' : 'Upload from Gallery',
+                    style: TextStyle(color: accentColor),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: BorderSide(color: accentColor, width: 2),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final picker = ImagePicker();
+                    final image = await picker.pickImage(source: ImageSource.camera);
+                    if (image != null) {
+                      setState(() => _ghanaCardImage = File(image.path));
+                    }
+                  },
+                  icon: Icon(Icons.camera_alt, color: accentColor),
+                  label: Text(
+                    'Take Photo',
+                    style: TextStyle(color: accentColor),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: BorderSide(color: accentColor, width: 2),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Icon(Icons.info_outline, size: 16, color: Colors.grey[600]),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Upload a clear photo of your Ghana Card (both sides if needed)',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   String _formatTimestamp(dynamic timestamp) {
     if (timestamp == null) return 'N/A';
     try {
@@ -1008,6 +1362,14 @@ class _ParentProfilePageState extends State<ParentProfilePage> with SingleTicker
     _emailController.dispose();
     _addressController.dispose();
     _emergencyContactController.dispose();
+
+    // ✅ Dispose new controllers
+    _ghanaCardNumberController.dispose();
+    _occupationController.dispose();
+    _dateOfBirthController.dispose();
+    _alternativePhoneController.dispose();
+    _nationalityController.dispose();
+    _workAddressController.dispose();
     _tabController.dispose();
     super.dispose();
   }
