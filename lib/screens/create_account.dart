@@ -1597,18 +1597,31 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
   Future<void> _sendEmailNotification(String email, String name, String otpCode) async {
     try {
       await _firestore.collection('mail').add({
-        'to': [email.toLowerCase().trim()],
+        'to': [email.toLowerCase().trim()], // ✅ Array of recipients
         'message': {
           'subject': 'S3TS Account Registration - Verification Code',
           'html': _buildEmailTemplate(name, otpCode),
+          // Optional: Add text version
+          'text': 'Your OTP is: $otpCode',
         },
-        'createdAt': FieldValue.serverTimestamp(),
-        'status': 'pending',
-      }).timeout(const Duration(seconds: 10));
+        // Optional fields
+        'from': 'S3TS Support <noreply@s3ts.com>', // Override default
+        'replyTo': 'support@s3ts.com',
 
-      debugPrint('✅ Email queued for: $email');
+        // Metadata
+        'template': {
+          'name': 'otp-verification',
+          'data': {
+            'userName': name,
+            'otpCode': otpCode,
+          }
+        }
+      });
+
+      debugPrint('✅ Email queued successfully for: $email');
     } catch (e) {
-      debugPrint('❌ Error sending email: $e');
+      debugPrint('❌ Error queueing email: $e');
+      rethrow;
     }
   }
 
