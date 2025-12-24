@@ -29,6 +29,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
   // Animation Controllers
   late AnimationController _fadeController;
   late AnimationController _slideController;
+  late AnimationController _dotsController; // ✅ THIS LINE IS REQUIRED
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
 
@@ -111,6 +112,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
     _initializeAnimations();
     _loadAvailableRoles();
     _trackSessionStart();
+    _setupPhoneFormatting(); // ✅ ADD THIS LINE
   }
 
   @override
@@ -118,6 +120,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
     _fadeController.dispose();
     _slideController.dispose();
     _resendTimer?.cancel();
+    _dotsController.dispose();
 
     _schoolNameController.dispose();
     _schoolAddressController.dispose();
@@ -138,6 +141,75 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
     _trackSessionEnd();
     super.dispose();
   }
+
+  // ============================================================================
+// PHONE FORMATTING SETUP
+// ============================================================================
+
+  void _setupPhoneFormatting() {
+    _phoneController.addListener(() => _formatPhoneNumber(_phoneController));
+    _adminPhoneController.addListener(() => _formatPhoneNumber(_adminPhoneController));
+    _schoolPhoneController.addListener(() => _formatPhoneNumber(_schoolPhoneController));
+  }
+
+  void _formatPhoneNumber(TextEditingController controller) {
+    String text = controller.text;
+    String digitsOnly = text.replaceAll(RegExp(r'[^\d+]'), '');
+
+    if (digitsOnly.isEmpty || digitsOnly == '+') {
+      return;
+    }
+
+    String formatted = '';
+
+    try {
+      if (digitsOnly.startsWith('+233')) {
+        // Format: +233 XX XXX XXXX
+        if (digitsOnly.length <= 4) {
+          formatted = digitsOnly;
+        } else if (digitsOnly.length <= 6) {
+          formatted = '+233 ${digitsOnly.substring(4)}';
+        } else if (digitsOnly.length <= 9) {
+          formatted = '+233 ${digitsOnly.substring(4, 6)} ${digitsOnly.substring(6)}';
+        } else if (digitsOnly.length <= 13) {
+          // ✅ FIXED: Check length before substring
+          formatted = '+233 ${digitsOnly.substring(4, 6)} ${digitsOnly.substring(6, 9)} ${digitsOnly.substring(9, 13)}';
+        } else {
+          // ✅ Don't format if too long
+          formatted = digitsOnly.substring(0, 13);
+        }
+      } else if (digitsOnly.startsWith('+')) {
+        formatted = digitsOnly;
+      } else if (digitsOnly.startsWith('0')) {
+        // Format: 0XX XXX XXXX
+        if (digitsOnly.length <= 3) {
+          formatted = digitsOnly;
+        } else if (digitsOnly.length <= 6) {
+          formatted = '${digitsOnly.substring(0, 3)} ${digitsOnly.substring(3)}';
+        } else if (digitsOnly.length <= 10) {
+          // ✅ FIXED: Check length before substring
+          formatted = '${digitsOnly.substring(0, 3)} ${digitsOnly.substring(3, 6)} ${digitsOnly.substring(6, 10)}';
+        } else {
+          // ✅ Don't format if too long
+          formatted = digitsOnly.substring(0, 10);
+        }
+      } else {
+        formatted = digitsOnly;
+      }
+
+      if (formatted != text) {
+        final cursorPos = formatted.length;
+        controller.value = TextEditingValue(
+          text: formatted,
+          selection: TextSelection.collapsed(offset: cursorPos),
+        );
+      }
+    } catch (e) {
+      // ✅ If any error occurs, just keep the original text
+      debugPrint('Error formatting phone: $e');
+    }
+  }
+
 
   // ============================================================================
   // ENHANCED VALIDATION METHODS
@@ -425,6 +497,12 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
       duration: const Duration(milliseconds: 400),
       vsync: this,
     );
+
+    // ✅ ADD THIS - Dots animation controller
+    _dotsController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
 
     _fadeAnimation = Tween<double>(
       begin: 0.0,
@@ -1452,13 +1530,25 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
 
   Future<bool> _checkPhoneExists(String phone) async {
     try {
+      final cleaned = phone.replaceAll(RegExp(r'[^\d+]'), '');
+      debugPrint('🔍 Checking if phone exists: $cleaned');
+
       final snapshot = await _firestore
           .collection('users')
-          .where('phone', isEqualTo: phone.trim())
+          .where('phone', isEqualTo: cleaned)
           .limit(1)
           .get()
           .timeout(const Duration(seconds: 10));
-      return snapshot.docs.isNotEmpty;
+
+      final exists = snapshot.docs.isNotEmpty;
+
+      if (exists) {
+        debugPrint('❌ Phone already exists in system');
+      } else {
+        debugPrint('✅ Phone is available');
+      }
+
+      return exists;
     } catch (e) {
       debugPrint('❌ Error checking phone: $e');
       return false;
@@ -1740,115 +1830,122 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
   // ============================================================================
 
   void _nextStep() async {
-    // ✅ Mark that user has attempted to proceed
     setState(() => _hasAttemptedNext = true);
 
-    // ✅ Validate current step strictly
     if (!_validateCurrentStep()) {
-      return; // Stop here if validation fails
+      return;
     }
 
-    // Reset animations for new step
     _fadeController.reset();
     _slideController.reset();
 
-    // Additional checks for specific steps
-    if (_currentStep == 1 && registrationType == 'school') {
-      setState(() => _isLoading = true);
-      bool schoolExists = await _checkSchoolExists(_schoolNameController.text);
-      setState(() => _isLoading = false);
-
-      if (schoolExists) {
-        _setFieldError('schoolName', 'A school with this name already exists in our system.');
-        return;
-      }
-
-      setState(() => _isLoading = true);
-      bool schoolEmailExists = await _checkSchoolEmailExists(_schoolEmailController.text);
-      setState(() => _isLoading = false);
-
-      if (schoolEmailExists) {
-        _setFieldError('schoolEmail', 'This email address is already registered with another school.');
-        return;
-      }
-    }
-
-    if (_currentStep == 2 && registrationType == 'school') {
-      setState(() => _isLoading = true);
-      bool emailExists = await _checkEmailExists(_adminEmailController.text);
-      setState(() => _isLoading = false);
-
-      if (emailExists) {
-        _setFieldError('adminEmail', 'This email address is already registered.');
-        return;
-      }
-
-      setState(() => _isLoading = true);
-      bool phoneExists = await _checkPhoneExists(_adminPhoneController.text);
-      setState(() => _isLoading = false);
-
-      if (phoneExists) {
-        _setFieldError('adminPhone', 'This phone number is already registered.');
-        return;
-      }
-    }
-
-    if (_currentStep == 3 && registrationType == 'user') {
-      setState(() => _isLoading = true);
-      bool emailExists = await _checkEmailExists(_emailController.text);
-      setState(() => _isLoading = false);
-
-      if (emailExists) {
-        _setFieldError('email', 'This email address is already registered.');
-        return;
-      }
-
-      setState(() => _isLoading = true);
-      bool phoneExists = await _checkPhoneExists(_phoneController.text);
-      setState(() => _isLoading = false);
-
-      if (phoneExists) {
-        _setFieldError('phone', 'This phone number is already registered.');
-        return;
-      }
-    }
-
-    // Load schools if needed
-    if (_currentStep == 0 && registrationType == 'user') {
-      _loadApprovedSchools();
-    }
-
-    // Generate OTP if at step 4
-    if (_currentStep == 4) {
-      if (mounted) {
-        setState(() => _isLoading = true);
-        await _generateAndSendOTP();
-
-        await Future.delayed(const Duration(milliseconds: 1500));
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-            _currentStep++;
-            _hasAttemptedNext = false; // Reset for next step
-          });
-          _fadeController.forward();
-          _slideController.forward();
-        }
-        return;
-      }
-    }
-
-    // Proceed to next step
+    // ✅ SHOW LOADING OVERLAY BEFORE CHECKS
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 800));
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-        _currentStep++;
-        _hasAttemptedNext = false; // Reset for next step
-      });
-      _fadeController.forward();
-      _slideController.forward();
+
+    try {
+      // ✅ Step 1: School Registration - Check school name and email
+      if (_currentStep == 1 && registrationType == 'school') {
+        debugPrint('🔍 Step 1: Checking school details...');
+
+        bool schoolExists = await _checkSchoolExists(_schoolNameController.text);
+        if (schoolExists) {
+          setState(() => _isLoading = false);
+          _setFieldError('schoolName', 'This school name is already registered in our system');
+          _setGeneralError('A school with this name already exists. Please use a different name or contact support if this is your school.');
+          return;
+        }
+
+        bool schoolEmailExists = await _checkSchoolEmailExists(_schoolEmailController.text);
+        if (schoolEmailExists) {
+          setState(() => _isLoading = false);
+          _setFieldError('schoolEmail', 'This email is already registered with another school');
+          _setGeneralError('This email address is already associated with a school. Please use a different email.');
+          return;
+        }
+      }
+
+      // ✅ Step 2: Admin Account - Check admin email and phone
+      if (_currentStep == 2 && registrationType == 'school') {
+        debugPrint('🔍 Step 2: Checking admin credentials...');
+
+        bool emailExists = await _checkEmailExists(_adminEmailController.text);
+        if (emailExists) {
+          setState(() => _isLoading = false);
+          _setFieldError('adminEmail', 'This email address is already registered in our system');
+          _setGeneralError('An account with this email already exists. Please use a different email or try logging in.');
+          return;
+        }
+
+        bool phoneExists = await _checkPhoneExists(_adminPhoneController.text);
+        if (phoneExists) {
+          setState(() => _isLoading = false);
+          _setFieldError('adminPhone', 'This phone number is already registered in our system');
+          _setGeneralError('An account with this phone number already exists. Please use a different number.');
+          return;
+        }
+      }
+
+      // ✅ Step 3: User Personal Details - Check user email and phone
+      if (_currentStep == 3 && registrationType == 'user') {
+        debugPrint('🔍 Step 3: Checking user credentials...');
+
+        bool emailExists = await _checkEmailExists(_emailController.text);
+        if (emailExists) {
+          setState(() => _isLoading = false);
+          _setFieldError('email', 'This email address is already registered in our system');
+          _setGeneralError('An account with this email already exists. Please use a different email or try logging in.');
+          return;
+        }
+
+        bool phoneExists = await _checkPhoneExists(_phoneController.text);
+        if (phoneExists) {
+          setState(() => _isLoading = false);
+          _setFieldError('phone', 'This phone number is already registered in our system');
+          _setGeneralError('An account with this phone number already exists. Please use a different number.');
+          return;
+        }
+      }
+
+      // Load schools if needed
+      if (_currentStep == 0 && registrationType == 'user') {
+        _loadApprovedSchools();
+      }
+
+      // Generate OTP if at step 4
+      if (_currentStep == 4) {
+        if (mounted) {
+          await _generateAndSendOTP();
+          await Future.delayed(const Duration(milliseconds: 1500));
+
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+              _currentStep++;
+              _hasAttemptedNext = false;
+            });
+            _fadeController.forward();
+            _slideController.forward();
+          }
+          return;
+        }
+      }
+
+      // Proceed to next step
+      await Future.delayed(const Duration(milliseconds: 800));
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _currentStep++;
+          _hasAttemptedNext = false;
+        });
+        _fadeController.forward();
+        _slideController.forward();
+      }
+    } catch (e) {
+      debugPrint('❌ Error in _nextStep: $e');
+      setState(() => _isLoading = false);
+      _showSnackBar('An error occurred. Please try again.', isError: true);
     }
   }
 
@@ -2694,6 +2791,8 @@ For questions, contact support@s3ts.com
   // ============================================================================
 
   @override
+  @override
+  @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final screenHeight = MediaQuery.of(context).size.height;
@@ -2701,6 +2800,7 @@ For questions, contact support@s3ts.com
     return Scaffold(
       body: Stack(
         children: [
+          // Background gradient
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -2743,7 +2843,8 @@ For questions, contact support@s3ts.com
               ),
             ),
           ),
-          // ✅ Only loading overlay - no error overlay
+
+          // ✅ Loading overlay - MUST BE LAST in Stack (on top of everything)
           if (_isLoading) _buildJumpingDotsOverlay(),
         ],
       ),
@@ -2753,55 +2854,51 @@ For questions, contact support@s3ts.com
   // ✅ Jumping Dots Loading Overlay (like login screen)
   Widget _buildJumpingDotsOverlay() {
     return Container(
-      color: Colors.black.withOpacity(0.3),
+      color: Colors.black.withOpacity(0.30), // ✅ Very light dimming - form stays visible
       child: Center(
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(3, (index) {
-                return TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0.0, end: 1.0),
-                  duration: const Duration(milliseconds: 600),
-                  curve: Curves.easeInOut,
-                  builder: (context, value, child) {
+            // Jumping dots animation
+            AnimatedBuilder(
+              animation: _dotsController,
+              builder: (context, child) {
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List.generate(3, (index) {
                     final delay = index * 0.2;
-                    final animationValue = (value - delay).clamp(0.0, 1.0);
-                    final offset = sin(animationValue * pi * 2) * 10;
+                    final value = (_dotsController.value + delay) % 1.0;
+                    final offset = (value < 0.5
+                        ? value * 2
+                        : (1 - value) * 2) * 18;
 
-                    return Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
                       child: Transform.translate(
                         offset: Offset(0, -offset),
                         child: Container(
-                          width: 12,
-                          height: 12,
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
+                          width: 11,
+                          height: 11,
+                          decoration: BoxDecoration(
                             shape: BoxShape.circle,
+                            color: index == 1
+                                ? const Color(0xFF0A1929) // Middle dot: Navy
+                                : Colors.white, // Outer dots: White
                           ),
                         ),
                       ),
                     );
-                  },
-                  onEnd: () {
-                    if (_isLoading && mounted) {
-                      setState(() {});
-                    }
-                  },
+                  }),
                 );
-              }),
+              },
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             const Text(
-              'Processing...',
+              'Validating...',
               style: TextStyle(
+                fontSize: 14,
                 color: Colors.white,
-                fontSize: 16,
                 fontWeight: FontWeight.w600,
-                decoration: TextDecoration.none,
-                fontFamily: 'Roboto',
               ),
             ),
           ],
